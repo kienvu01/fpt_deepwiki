@@ -1,13 +1,8 @@
-# DeepWiki-Open
+# FPT DeepWiki
 
 ![DeepWiki Banner](screenshots/Deepwiki.png)
 
-**DeepWiki** is my own implementation attempt of DeepWiki, automatically creates beautiful, interactive wikis for any GitHub, GitLab, or BitBucket repository! Just enter a repo name, and DeepWiki will:
-
-1. Analyze the code structure
-2. Generate comprehensive documentation
-3. Create visual diagrams to explain how everything works
-4. Organize it all into an easy-to-navigate wiki
+**FPT DeepWiki** is an AI-powered tool that automatically creates comprehensive, interactive wikis for any GitHub, GitLab, or BitBucket repository. The system analyzes code structure, generates documentation, creates visual diagrams, and organizes everything into an easy-to-navigate wiki format.
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/sheing)
 [![Tip in Crypto](https://tip.md/badge.svg)](https://tip.md/sng-asyncfunc)
@@ -26,6 +21,7 @@
 - **Ask Feature**: Chat with your repository using RAG-powered AI to get accurate answers
 - **DeepResearch**: Multi-turn research process that thoroughly investigates complex topics
 - **Multiple Model Providers**: Support for Google Gemini, OpenAI, OpenRouter, and local Ollama models
+- **Local Project Analysis**: Analyze local project directories and generate comprehensive reports
 
 ## 🚀 Quick Start (Super Easy!)
 
@@ -48,7 +44,7 @@ echo "OLLAMA_HOST=your_ollama_host" >> .env
 docker-compose up
 ```
 
-For detailed instructions on using DeepWiki with Ollama and Docker, see [Ollama Instructions](Ollama-instruction.md).
+For detailed instructions on using FPT DeepWiki with Ollama and Docker, see [Ollama Instructions](Ollama-instruction.md).
 
 > 💡 **Where to get these keys:**
 > - Get a Google API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
@@ -93,7 +89,7 @@ npm run dev
 yarn dev
 ```
 
-#### Step 4: Use DeepWiki!
+#### Step 4: Use FPT DeepWiki!
 
 1. Open [http://localhost:3000](http://localhost:3000) in your browser
 2. Enter a GitHub, GitLab, or Bitbucket repository (like `https://github.com/openai/codex`, `https://github.com/microsoft/autogen`, `https://gitlab.com/gitlab-org/gitlab`, or `https://bitbucket.org/redradish/atlassian_app_versions`)
@@ -102,7 +98,7 @@ yarn dev
 
 ## 🔍 How It Works
 
-DeepWiki uses AI to:
+FPT DeepWiki uses AI to:
 
 1. Clone and analyze the GitHub, GitLab, or Bitbucket repository (including private repos with token authentication)
 2. Create embeddings of the code for smart retrieval
@@ -150,9 +146,11 @@ graph TD
 
 ## 🛠️ Project Structure
 
+FPT DeepWiki follows a modern client-server architecture with clear separation of concerns:
+
 ```
 deepwiki/
-├── api/                  # Backend API server
+├── api/                  # Backend API server (FastAPI)
 │   ├── main.py           # API entry point
 │   ├── api.py            # FastAPI implementation
 │   ├── rag.py            # Retrieval Augmented Generation
@@ -172,7 +170,7 @@ deepwiki/
 
 ## 🤖 Provider-Based Model Selection System
 
-DeepWiki now implements a flexible provider-based model selection system supporting multiple LLM providers:
+FPT DeepWiki implements a flexible provider-based model selection system supporting multiple LLM providers:
 
 ### Supported Providers and Models
 
@@ -203,7 +201,7 @@ DEEPWIKI_CONFIG_DIR=/path/to/custom/config/dir  # Optional, for custom config fi
 
 ### Configuration Files
 
-DeepWiki uses JSON configuration files to manage various aspects of the system:
+FPT DeepWiki uses JSON configuration files to manage various aspects of the system:
 
 1. **`generator.json`**: Configuration for text generation models
    - Defines available model providers (Google, OpenAI, OpenRouter, Ollama)
@@ -239,7 +237,7 @@ The OpenAI Client's base_url configuration is designed primarily for enterprise 
 - Allows organizations to use their own self-hosted or custom-deployed LLM services
 - Supports integration with third-party OpenAI API-compatible services
 
-**Coming Soon**: In future updates, DeepWiki will support a mode where users need to provide their own API keys in requests. This will allow enterprise customers with private channels to use their existing API arrangements without sharing credentials with the DeepWiki deployment.
+**Coming Soon**: In future updates, FPT DeepWiki will support a mode where users need to provide their own API keys in requests. This will allow enterprise customers with private channels to use their existing API arrangements without sharing credentials with the FPT DeepWiki deployment.
 
 ## 🧩 Using OpenAI-Compatible Embedding Models (e.g., Alibaba Qwen)
 
@@ -272,7 +270,7 @@ If you're not using ollama mode, you need to configure an OpenAI API key for emb
 
 ### Docker Setup
 
-You can use Docker to run DeepWiki:
+You can use Docker to run FPT DeepWiki:
 
 ```bash
 # Pull the image from GitHub Container Registry
@@ -339,7 +337,7 @@ git clone https://github.com/AsyncFuncAI/deepwiki-open.git
 cd deepwiki-open
 
 # Build the Docker image
-docker build -t deepwiki-open .
+docker build -t fpt-deepwiki .
 
 # Run the container
 docker run -p 8001:8001 -p 3000:3000 \
@@ -347,7 +345,7 @@ docker run -p 8001:8001 -p 3000:3000 \
   -e OPENAI_API_KEY=your_openai_api_key \
   -e OPENROUTER_API_KEY=your_openrouter_api_key \
   -e OLLAMA_HOST=your_ollama_host \
-  deepwiki-open
+  fpt-deepwiki
 ```
 
 ### API Server Details
@@ -356,19 +354,21 @@ The API server provides:
 - Repository cloning and indexing
 - RAG (Retrieval Augmented Generation)
 - Streaming chat completions
+- Local project analysis
+- Comprehensive API documentation via OpenAPI/Swagger
 
 For more details, see the [API README](./api/README.md).
 
 ## 🔌 OpenRouter Integration
 
-DeepWiki now supports [OpenRouter](https://openrouter.ai/) as a model provider, giving you access to hundreds of AI models through a single API:
+FPT DeepWiki supports [OpenRouter](https://openrouter.ai/) as a model provider, giving you access to hundreds of AI models through a single API:
 
 - **Multiple Model Options**: Access models from OpenAI, Anthropic, Google, Meta, Mistral, and more
 - **Simple Configuration**: Just add your OpenRouter API key and select the model you want to use
 - **Cost Efficiency**: Choose models that fit your budget and performance needs
 - **Easy Switching**: Toggle between different models without changing your code
 
-### How to Use OpenRouter with DeepWiki
+### How to Use OpenRouter with FPT DeepWiki
 
 1. **Get an API Key**: Sign up at [OpenRouter](https://openrouter.ai/) and get your API key
 2. **Add to Environment**: Add `OPENROUTER_API_KEY=your_key` to your `.env` file
@@ -409,7 +409,7 @@ To use DeepResearch, simply toggle the "Deep Research" switch in the Ask interfa
 ## 📱 Screenshots
 
 ![DeepWiki Main Interface](screenshots/Interface.png)
-*The main interface of DeepWiki*
+*The main interface of FPT DeepWiki*
 
 ![Private Repository Support](screenshots/privaterepo.png)
 *Access private repositories with personal access tokens*
@@ -421,7 +421,7 @@ To use DeepResearch, simply toggle the "Deep Research" switch in the Ask interfa
 
 [![DeepWiki Demo Video](https://img.youtube.com/vi/zGANs8US8B4/0.jpg)](https://youtu.be/zGANs8US8B4)
 
-*Watch DeepWiki in action!*
+*Watch FPT DeepWiki in action!*
 
 ## ❓ Troubleshooting
 
