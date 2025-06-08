@@ -1,0 +1,765 @@
+openapi: 3.0.3
+info:
+  title: DeepWiki-Open API
+  description: |
+    API documentation for DeepWiki-Open, an AI-powered tool that automatically creates comprehensive, 
+    interactive wikis for any GitHub, GitLab, or BitBucket repository.
+  version: 1.0.0
+  contact:
+    name: DeepWiki-Open Team
+servers:
+  - url: /
+    description: Current server
+
+tags:
+  - name: Chat
+    description: Endpoints for chat functionality
+  - name: Wiki
+    description: Endpoints for wiki management
+  - name: Local Project
+    description: Endpoints for local project analysis
+  - name: Models
+    description: Endpoints for model configuration
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /chat/completions/stream:
+    post:
+      tags:
+        - Chat
+      summary: Stream chat completions
+      description: Stream chat completions for repository-specific queries
+      operationId: streamChatCompletions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ws/chat:
+    get:
+      tags:
+        - Chat
+      summary: WebSocket chat endpoint
+      description: WebSocket endpoint for streaming chat completions
+      operationId: websocketChat
+      responses:
+        '101':
+          description: Switching protocols to WebSocket
+
+  /export/wiki:
+    post:
+      tags:
+        - Wiki
+      summary: Export wiki content
+      description: Export wiki content as Markdown or JSON
+      operationId: exportWiki
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WikiExportRequest'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            text/markdown:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/wiki_cache:
+    get:
+      tags:
+        - Wiki
+      summary: Get cached wiki data
+      description: Retrieves cached wiki data (structure and generated pages) for a repository
+      operationId: getCachedWiki
+      parameters:
+        - name: owner
+          in: query
+          description: Repository owner
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: query
+          description: Repository name
+          required: true
+          schema:
+            type: string
+        - name: repo_type
+          in: query
+          description: Repository type (e.g., github, gitlab)
+          required: true
+          schema:
+            type: string
+        - name: language
+          in: query
+          description: Language of the wiki content
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikiCacheData'
+        '404':
+          description: Wiki cache not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Wiki
+      summary: Store wiki cache
+      description: Stores generated wiki data (structure and pages) to the server-side cache
+      operationId: storeWikiCache
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WikiCacheRequest'
+      responses:
+        '200':
+          description: Wiki cache saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '500':
+          description: Failed to save wiki cache
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Wiki
+      summary: Delete wiki cache
+      description: Deletes a specific wiki cache from the file system
+      operationId: deleteWikiCache
+      parameters:
+        - name: owner
+          in: query
+          description: Repository owner
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: query
+          description: Repository name
+          required: true
+          schema:
+            type: string
+        - name: repo_type
+          in: query
+          description: Repository type (e.g., github, gitlab)
+          required: true
+          schema:
+            type: string
+        - name: language
+          in: query
+          description: Language of the wiki content
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wiki cache deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Wiki cache not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to delete wiki cache
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/processed_projects:
+    get:
+      tags:
+        - Wiki
+      summary: Get processed projects
+      description: Lists all processed projects found in the wiki cache directory
+      operationId: getProcessedProjects
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcessedProjectEntry'
+        '500':
+          description: Failed to list processed projects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /local_repo/structure:
+    get:
+      tags:
+        - Wiki
+      summary: Get local repository structure
+      description: Return the file tree and README content for a local repository
+      operationId: getLocalRepoStructure
+      parameters:
+        - name: path
+          in: query
+          description: Path to local repository
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file_tree:
+                    type: string
+                  readme:
+                    type: string
+        '400':
+          description: No path provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Directory not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error processing local repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/local_project/analyze:
+    post:
+      tags:
+        - Local Project
+      summary: Analyze local project
+      description: Analyze a local project directory and generate a comprehensive report
+      operationId: analyzeLocalProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocalProjectAnalysisRequest'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/local_project/reports:
+    get:
+      tags:
+        - Local Project
+      summary: List local project reports
+      description: List all stored local project reports
+      operationId: listLocalProjectReports
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LocalProjectReportSummary'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/local_project/report/{id}:
+    get:
+      tags:
+        - Local Project
+      summary: Get local project report
+      description: Get a specific local project report
+      operationId: getLocalProjectReport
+      parameters:
+        - name: id
+          in: path
+          description: The ID of the report to retrieve
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /models/config:
+    get:
+      tags:
+        - Models
+      summary: Get model configuration
+      description: Get available model providers and their models
+      operationId: getModelConfig
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelConfig'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Health check endpoint for Docker and monitoring
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                  service:
+                    type: string
+
+  /:
+    get:
+      tags:
+        - Health
+      summary: Root endpoint
+      description: Root endpoint to check if the API is running
+      operationId: root
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  version:
+                    type: string
+                  endpoints:
+                    type: object
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error message
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+          description: Role of the message sender
+        content:
+          type: string
+          description: Content of the message
+
+    ChatCompletionRequest:
+      type: object
+      required:
+        - repo_url
+        - messages
+      properties:
+        repo_url:
+          type: string
+          description: URL of the repository to query
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          description: List of chat messages
+        filePath:
+          type: string
+          description: Optional path to a file in the repository to include in the prompt
+        token:
+          type: string
+          description: Personal access token for private repositories
+        type:
+          type: string
+          default: github
+          description: Type of repository (e.g., 'github', 'gitlab', 'bitbucket')
+        provider:
+          type: string
+          default: google
+          description: Model provider (google, openai, openrouter, ollama)
+        model:
+          type: string
+          description: Model name for the specified provider
+        language:
+          type: string
+          default: en
+          description: Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')
+        excluded_dirs:
+          type: string
+          description: Comma-separated list of directories to exclude from processing
+        excluded_files:
+          type: string
+          description: Comma-separated list of file patterns to exclude from processing
+        included_dirs:
+          type: string
+          description: Comma-separated list of directories to include exclusively
+        included_files:
+          type: string
+          description: Comma-separated list of file patterns to include exclusively
+
+    WikiPage:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the page
+        title:
+          type: string
+          description: Title of the page
+        content:
+          type: string
+          description: Content of the page
+        filePaths:
+          type: array
+          items:
+            type: string
+          description: List of file paths related to the page
+        importance:
+          type: string
+          description: Importance level of the page (high, medium, low)
+        relatedPages:
+          type: array
+          items:
+            type: string
+          description: List of related page IDs
+
+    WikiStructureModel:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the wiki structure
+        title:
+          type: string
+          description: Title of the wiki
+        description:
+          type: string
+          description: Description of the wiki
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/WikiPage'
+          description: List of wiki pages
+
+    WikiCacheData:
+      type: object
+      properties:
+        wiki_structure:
+          $ref: '#/components/schemas/WikiStructureModel'
+          description: Structure of the wiki
+        generated_pages:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/WikiPage'
+          description: Map of generated wiki pages
+        repo_url:
+          type: string
+          description: URL of the repository
+
+    WikiCacheRequest:
+      type: object
+      required:
+        - owner
+        - repo
+        - repo_type
+        - language
+        - wiki_structure
+        - generated_pages
+      properties:
+        owner:
+          type: string
+          description: Repository owner
+        repo:
+          type: string
+          description: Repository name
+        repo_type:
+          type: string
+          description: Repository type (e.g., github, gitlab)
+        language:
+          type: string
+          description: Language of the wiki content
+        wiki_structure:
+          $ref: '#/components/schemas/WikiStructureModel'
+          description: Structure of the wiki
+        generated_pages:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/WikiPage'
+          description: Map of generated wiki pages
+        repo_url:
+          type: string
+          description: URL of the repository
+
+    WikiExportRequest:
+      type: object
+      required:
+        - repo_url
+        - pages
+        - format
+      properties:
+        repo_url:
+          type: string
+          description: URL of the repository
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/WikiPage'
+          description: List of wiki pages to export
+        format:
+          type: string
+          enum: [markdown, json]
+          description: Export format (markdown or json)
+
+    ProcessedProjectEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Filename
+        owner:
+          type: string
+          description: Repository owner
+        repo:
+          type: string
+          description: Repository name
+        name:
+          type: string
+          description: owner/repo
+        repo_type:
+          type: string
+          description: Repository type
+        submittedAt:
+          type: integer
+          description: Timestamp
+        language:
+          type: string
+          description: Language
+
+    LocalProjectAnalysisRequest:
+      type: object
+      required:
+        - project_path
+      properties:
+        project_path:
+          type: string
+          description: Path to the local project directory
+        excluded_dirs:
+          type: array
+          items:
+            type: string
+          description: Directories to exclude from analysis
+        excluded_files:
+          type: array
+          items:
+            type: string
+          description: File patterns to exclude from analysis
+        model_provider:
+          type: string
+          default: google
+          description: Model provider to use for summary generation
+        model_name:
+          type: string
+          description: Model name to use with the provider
+        store_in_rag:
+          type: boolean
+          default: true
+          description: Whether to store the report in the RAG system
+
+    LocalProjectReportSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the report
+        project_name:
+          type: string
+          description: Name of the project
+        analysis_timestamp:
+          type: string
+          description: Timestamp of the analysis
+        total_files:
+          type: integer
+          description: Total number of files in the project
+        total_lines_of_code:
+          type: integer
+          description: Total lines of code in the project
+        total_size_bytes:
+          type: integer
+          description: Total size of the project in bytes
+        languages:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Languages used in the project and their file counts
+
+    Model:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Model identifier
+        name:
+          type: string
+          description: Display name for the model
+
+    Provider:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Provider identifier
+        name:
+          type: string
+          description: Display name for the provider
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/Model'
+          description: List of available models for this provider
+        supportsCustomModel:
+          type: boolean
+          default: false
+          description: Whether this provider supports custom models
+
+    ModelConfig:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Provider'
+          description: List of available model providers
+        defaultProvider:
+          type: string
+          description: ID of the default provider

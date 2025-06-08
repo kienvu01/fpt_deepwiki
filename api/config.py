@@ -255,7 +255,11 @@ def get_model_config(provider="google", model=None):
     if "providers" not in configs:
         raise ValueError("Provider configuration not loaded")
 
-    provider_config = configs["providers"].get(provider)
+    # Convert provider name to lowercase for case-insensitive lookup
+    provider_lower = provider.lower()
+    
+    # Try to get provider config using lowercase name
+    provider_config = configs["providers"].get(provider_lower)
     if not provider_config:
         raise ValueError(f"Configuration for provider '{provider}' not found")
 

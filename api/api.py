@@ -1,14 +1,16 @@
 import os
 import logging
-from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from typing import List, Optional, Dict, Any, Literal
 import json
 from datetime import datetime
 from pydantic import BaseModel, Field
 import google.generativeai as genai
 import asyncio
+import glob
 
 # Get a logger for this module
 logger = logging.getLogger(__name__)
@@ -24,8 +26,11 @@ else:
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Streaming API",
-    description="API for streaming chat completions"
+    title="DeepWiki-Open API",
+    description="API for DeepWiki-Open, an AI-powered tool that automatically creates comprehensive, interactive wikis for any GitHub, GitLab, or BitBucket repository",
+    version="1.0.0",
+    docs_url=None,  # Disable default Swagger UI
+    redoc_url=None  # Disable default ReDoc
 )
 
 # Configure CORS
@@ -40,6 +45,30 @@ app.add_middleware(
 # Helper function to get adalflow root path
 def get_adalflow_default_root_path():
     return os.path.expanduser(os.path.join("~", ".adalflow"))
+
+# --- Local Project Analysis Models ---
+class LocalProjectAnalysisRequest(BaseModel):
+    """
+    Model for requesting a local project analysis.
+    """
+    project_path: str = Field(..., description="Path to the local project directory")
+    excluded_dirs: Optional[List[str]] = Field(None, description="Directories to exclude from analysis")
+    excluded_files: Optional[List[str]] = Field(None, description="File patterns to exclude from analysis")
+    model_provider: str = Field("google", description="Model provider to use for summary generation")
+    model_name: Optional[str] = Field(None, description="Model name to use with the provider")
+    store_in_rag: bool = Field(True, description="Whether to store the report in the RAG system")
+
+class LocalProjectReportSummary(BaseModel):
+    """
+    Model for a summary of a local project report.
+    """
+    id: str = Field(..., description="Unique identifier for the report")
+    project_name: str = Field(..., description="Name of the project")
+    analysis_timestamp: str = Field(..., description="Timestamp of the analysis")
+    total_files: int = Field(..., description="Total number of files in the project")
+    total_lines_of_code: int = Field(..., description="Total lines of code in the project")
+    total_size_bytes: int = Field(..., description="Total size of the project in bytes")
+    languages: Dict[str, int] = Field(..., description="Languages used in the project and their file counts")
 
 # --- Pydantic Models ---
 class WikiPage(BaseModel):
@@ -124,6 +153,7 @@ class ModelConfig(BaseModel):
     defaultProvider: str = Field(..., description="ID of the default provider")
 
 from api.config import configs
+from api.local_report import analyze_project, generate_project_summary, store_report_in_rag, analyze_and_store_project
 
 @app.get("/models/config", response_model=ModelConfig)
 async def get_model_config():
@@ -361,6 +391,24 @@ app.add_api_route("/chat/completions/stream", chat_completions_stream, methods=[
 # Add the WebSocket endpoint
 app.add_websocket_route("/ws/chat", handle_websocket_chat)
 
+# Serve OpenAPI specification and Swagger UI
+@app.get("/api/openapi.yaml", include_in_schema=False)
+async def get_openapi_yaml():
+    """Serve the OpenAPI specification file."""
+    return FileResponse(
+        path="api/openapi.yaml",
+        media_type="text/yaml",
+        filename="openapi.yaml"
+    )
+
+@app.get("/api/docs", include_in_schema=False)
+async def get_swagger_ui():
+    """Serve the Swagger UI HTML."""
+    return FileResponse(
+        path="api/swagger-ui.html",
+        media_type="text/html"
+    )
+
 # --- Wiki Cache Helper Functions ---
 
 WIKI_CACHE_DIR = os.path.join(get_adalflow_default_root_path(), "wikicache")
@@ -487,9 +535,15 @@ async def health_check():
 async def root():
     """Root endpoint to check if the API is running"""
     return {
-        "message": "Welcome to Streaming API",
+        "message": "Welcome to DeepWiki-Open API",
         "version": "1.0.0",
+        "documentation": "/api/docs",
+        "openapi_spec": "/api/openapi.yaml",
         "endpoints": {
+            "Documentation": [
+                "GET /api/docs - Swagger UI documentation",
+                "GET /api/openapi.yaml - OpenAPI specification"
+            ],
             "Chat": [
                 "POST /chat/completions/stream - Streaming chat completion (HTTP)",
                 "WebSocket /ws/chat - WebSocket chat completion",
@@ -497,16 +551,296 @@ async def root():
             "Wiki": [
                 "POST /export/wiki - Export wiki content as Markdown or JSON",
                 "GET /api/wiki_cache - Retrieve cached wiki data",
-                "POST /api/wiki_cache - Store wiki data to cache"
+                "POST /api/wiki_cache - Store wiki data to cache",
+                "DELETE /api/wiki_cache - Delete wiki cache",
+                "GET /api/processed_projects - List all processed projects"
             ],
             "LocalRepo": [
                 "GET /local_repo/structure - Get structure of a local repository (with path parameter)",
+            ],
+            "LocalProject": [
+                "POST /api/local_project/analyze - Analyze a local project directory",
+                "GET /api/local_project/reports - List all stored local project reports",
+                "GET /api/local_project/report/{id} - Get a specific local project report"
+            ],
+            "Models": [
+                "GET /models/config - Get available model providers and their models"
             ],
             "Health": [
                 "GET /health - Health check endpoint"
             ]
         }
     }
+
+# --- Local Project Analysis Endpoints ---
+
+@app.post("/api/local_project/analyze", response_model=Dict[str, Any])
+async def analyze_local_project(request: LocalProjectAnalysisRequest):
+    """
+    Analyze a local project directory and generate a comprehensive report.
+    
+    Args:
+        request: The analysis request containing the project path and options
+        
+    Returns:
+        The generated project report
+    """
+    try:
+        logger.info(f"Analyzing local project at {request.project_path}")
+        
+        # Validate project path
+        if not os.path.isdir(request.project_path):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Project path does not exist or is not a directory: {request.project_path}"
+            )
+        
+        # Analyze the project and store in RAG if requested
+        report, rag_success = analyze_and_store_project(
+            project_path=request.project_path,
+            model_provider=request.model_provider,
+            model_name=request.model_name,
+            excluded_dirs=request.excluded_dirs,
+            excluded_files=request.excluded_files
+        )
+        
+        # Convert the report to a dictionary
+        report_dict = report.to_dict()
+        
+        # Add RAG storage status
+        report_dict["stored_in_rag"] = rag_success
+        
+        return report_dict
+    
+    except Exception as e:
+        logger.error(f"Error analyzing local project: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error analyzing local project: {str(e)}"
+        )
+
+@app.get("/api/local_project/reports", response_model=List[LocalProjectReportSummary])
+async def list_local_project_reports():
+    """
+    List all stored local project reports.
+    
+    Returns:
+        A list of local project report summaries
+    """
+    try:
+        # Get the path to the database directory
+        root_path = get_adalflow_default_root_path()
+        db_dir = os.path.join(root_path, "databases")
+        
+        # Find all local project report databases
+        report_summaries = []
+        pattern = os.path.join(db_dir, "local_*.pkl")
+        
+        # Import pickle for loading the database files
+        import pickle
+        
+        for db_path in glob.glob(pattern):
+            try:
+                # Extract the project ID from the filename
+                filename = os.path.basename(db_path)
+                project_id = os.path.splitext(filename)[0]
+                
+                # Extract project name and timestamp from the ID
+                # Format: local_<project_name>_<timestamp>
+                parts = project_id.split('_')
+                if len(parts) >= 3:
+                    project_name = '_'.join(parts[1:-1])
+                    timestamp = parts[-1]
+                    
+                    # Try to load the actual data from the database
+                    try:
+                        with open(db_path, 'rb') as f:
+                            db_data = pickle.load(f)
+                        
+                        # Extract the project report from the database
+                        project_report = None
+                        
+                        # Try to find a ProjectReport object in the database
+                        if hasattr(db_data, 'get') and callable(db_data.get):
+                            # If db_data is a dictionary-like object, look for the report
+                            if 'report' in db_data:
+                                project_report = db_data['report']
+                            elif 'project_report' in db_data:
+                                project_report = db_data['project_report']
+                        elif hasattr(db_data, 'to_dict') and callable(db_data.to_dict):
+                            # If db_data is a ProjectReport object or has a to_dict method
+                            project_report = db_data
+                        
+                        # If we found a project report, extract the summary information
+                        if project_report:
+                            # Get the report data
+                            if hasattr(project_report, 'to_dict') and callable(project_report.to_dict):
+                                report_data = project_report.to_dict()
+                            elif isinstance(project_report, dict):
+                                report_data = project_report
+                            else:
+                                # If we can't get the report data, use default values
+                                report_data = {
+                                    'total_files': 0,
+                                    'total_lines_of_code': 0,
+                                    'total_size_bytes': 0,
+                                    'languages': {}
+                                }
+                            
+                            # Create the report summary
+                            report_summaries.append(
+                                LocalProjectReportSummary(
+                                    id=project_id,
+                                    project_name=project_name,
+                                    analysis_timestamp=datetime.fromtimestamp(int(timestamp)).isoformat(),
+                                    total_files=report_data.get('total_files', 0),
+                                    total_lines_of_code=report_data.get('total_lines_of_code', 0),
+                                    total_size_bytes=report_data.get('total_size_bytes', 0),
+                                    languages=report_data.get('languages', {})
+                                )
+                            )
+                        else:
+                            # If we couldn't find a project report, use default values
+                            logger.warning(f"Could not find ProjectReport in database: {project_id}")
+                            report_summaries.append(
+                                LocalProjectReportSummary(
+                                    id=project_id,
+                                    project_name=project_name,
+                                    analysis_timestamp=datetime.fromtimestamp(int(timestamp)).isoformat(),
+                                    total_files=0,
+                                    total_lines_of_code=0,
+                                    total_size_bytes=0,
+                                    languages={}
+                                )
+                            )
+                    except (pickle.PickleError, EOFError) as pe:
+                        logger.warning(f"Error unpickling database file {db_path}: {pe}")
+                        # Add a basic entry with default values
+                        report_summaries.append(
+                            LocalProjectReportSummary(
+                                id=project_id,
+                                project_name=project_name,
+                                analysis_timestamp=datetime.fromtimestamp(int(timestamp)).isoformat(),
+                                total_files=0,
+                                total_lines_of_code=0,
+                                total_size_bytes=0,
+                                languages={}
+                            )
+                        )
+            except Exception as e:
+                logger.warning(f"Error processing report database {db_path}: {e}")
+        
+        # Sort by timestamp (newest first)
+        report_summaries.sort(key=lambda x: x.analysis_timestamp, reverse=True)
+        
+        return report_summaries
+    
+    except Exception as e:
+        logger.error(f"Error listing local project reports: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error listing local project reports: {str(e)}"
+        )
+
+@app.get("/api/local_project/report/{id}", response_model=Dict[str, Any])
+async def get_local_project_report(id: str):
+    """
+    Get a specific local project report.
+    
+    Args:
+        id: The ID of the report to retrieve
+        
+    Returns:
+        The project report as JSON
+    """
+    try:
+        # Get the path to the database file
+        root_path = get_adalflow_default_root_path()
+        db_path = os.path.join(root_path, "databases", f"{id}.pkl")
+        
+        # Check if the database exists
+        if not os.path.exists(db_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Report not found: {id}"
+            )
+        
+        # Load the database using pickle
+        import pickle
+        try:
+            with open(db_path, 'rb') as f:
+                db_data = pickle.load(f)
+                
+            # Extract the project report from the database
+            # The database structure might vary, so we need to handle different formats
+            project_report = None
+            
+            # Try to find a ProjectReport object in the database
+            if hasattr(db_data, 'get') and callable(db_data.get):
+                # If db_data is a dictionary-like object, look for the report
+                if 'report' in db_data:
+                    project_report = db_data['report']
+                elif 'project_report' in db_data:
+                    project_report = db_data['project_report']
+            elif hasattr(db_data, 'to_dict') and callable(db_data.to_dict):
+                # If db_data is a ProjectReport object or has a to_dict method
+                project_report = db_data
+            else:
+                # If we can't find a ProjectReport, return the raw data
+                logger.warning(f"Could not find ProjectReport in database: {id}")
+                return {
+                    "id": id,
+                    "raw_data": str(db_data)
+                }
+            
+            # Convert the project report to a dictionary
+            if hasattr(project_report, 'to_dict') and callable(project_report.to_dict):
+                report_dict = project_report.to_dict()
+            elif isinstance(project_report, dict):
+                report_dict = project_report
+            else:
+                logger.warning(f"Could not convert ProjectReport to dictionary: {id}")
+                return {
+                    "id": id,
+                    "raw_data": str(project_report)
+                }
+            
+            # Add the report ID to the dictionary
+            report_dict['id'] = id
+            
+            # Ensure all values are JSON serializable
+            def make_json_serializable(obj):
+                if isinstance(obj, dict):
+                    return {k: make_json_serializable(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [make_json_serializable(item) for item in obj]
+                elif isinstance(obj, (str, int, float, bool, type(None))):
+                    return obj
+                else:
+                    # Convert non-serializable objects to strings
+                    return str(obj)
+            
+            # Process the report dictionary to ensure all values are JSON serializable
+            report_dict = make_json_serializable(report_dict)
+            
+            return report_dict
+            
+        except (pickle.PickleError, EOFError) as pe:
+            logger.error(f"Error unpickling database file {db_path}: {pe}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error reading report data: {str(pe)}"
+            )
+    
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        logger.error(f"Error retrieving local project report: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving local project report: {str(e)}"
+        )
 
 # --- Processed Projects Endpoint --- (New Endpoint)
 @app.get("/api/processed_projects", response_model=List[ProcessedProjectEntry])

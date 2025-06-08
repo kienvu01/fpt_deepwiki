@@ -462,6 +462,16 @@ IMPORTANT FORMATTING RULES:
             Tuple of (RAGAnswer, retrieved_documents)
         """
         try:
+            # If retriever is not initialized, use the generator directly without retrieval
+            if not hasattr(self, 'retriever'):
+                logger.info("Retriever not initialized, using generator directly")
+                # Call the generator directly with the query
+                # The generator expects the parameter to be named 'input_str' in the template,
+                # but the method parameter is named differently
+                response = self.generator(prompt_kwargs={"input_str": query})
+                return response, []
+                
+            # Normal RAG flow with retrieval
             retrieved_documents = self.retriever(query)
 
             # Fill in the documents
