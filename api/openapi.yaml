@@ -24,6 +24,39 @@ tags:
     description: Health check endpoints
 
 paths:
+  /api/wiki/generate:
+    post:
+      tags:
+        - Wiki
+      summary: Generate wiki report
+      description: Generate a complete wiki report for a repository and store it in the RAG system
+      operationId: generateWikiReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WikiReportRequest'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikiReport'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /chat/completions/stream:
     post:
       tags:
@@ -462,6 +495,105 @@ paths:
 
 components:
   schemas:
+    WikiReportRequest:
+      type: object
+      required:
+        - repo_url
+      properties:
+        repo_url:
+          type: string
+          description: URL of the repository to generate a wiki for
+        repo_type:
+          type: string
+          default: github
+          description: Type of repository (github, gitlab, bitbucket)
+        token:
+          type: string
+          description: Personal access token for private repositories
+        language:
+          type: string
+          default: en
+          description: Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')
+        model_provider:
+          type: string
+          default: google
+          description: Model provider to use for content generation
+        model_name:
+          type: string
+          description: Model name to use with the provider
+        excluded_dirs:
+          type: array
+          items:
+            type: string
+          description: Directories to exclude from processing
+        excluded_files:
+          type: array
+          items:
+            type: string
+          description: File patterns to exclude from processing
+        included_dirs:
+          type: array
+          items:
+            type: string
+          description: Directories to include exclusively
+        included_files:
+          type: array
+          items:
+            type: string
+          description: File patterns to include exclusively
+        store_in_rag:
+          type: boolean
+          default: true
+          description: Whether to store the report in the RAG system
+
+    WikiReport:
+      type: object
+      properties:
+        wiki_structure:
+          $ref: '#/components/schemas/WikiStructure'
+          description: Structure of the wiki
+        generated_pages:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/WikiPage'
+          description: Map of generated wiki pages
+        repo_url:
+          type: string
+          description: URL of the repository
+        owner:
+          type: string
+          description: Repository owner
+        repo:
+          type: string
+          description: Repository name
+        repo_type:
+          type: string
+          description: Repository type (github, gitlab, bitbucket)
+        language:
+          type: string
+          description: Language of the wiki content
+        generation_timestamp:
+          type: string
+          description: Timestamp of when the wiki was generated
+
+    WikiStructure:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the wiki structure
+        title:
+          type: string
+          description: Title of the wiki
+        description:
+          type: string
+          description: Description of the wiki
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/WikiPage'
+          description: List of wiki pages
+
     Error:
       type: object
       properties:

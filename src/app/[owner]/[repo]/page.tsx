@@ -229,6 +229,10 @@ export default function RepoWikiPage() {
   // Wiki type state - default to comprehensive view
   const isComprehensiveParam = searchParams.get('comprehensive') !== 'false';
   const [isComprehensiveView, setIsComprehensiveView] = useState(isComprehensiveParam);
+  
+  // Backend processing state - default to false (frontend processing)
+  const useBackendProcessingParam = searchParams.get('backend_processing') === 'true';
+  const [useBackendProcessing, setUseBackendProcessing] = useState(useBackendProcessingParam);
   // Using useRef for activeContentRequests to maintain a single instance across renders
   // This map tracks which pages are currently being processed to prevent duplicate requests
   // Note: In a multi-threaded environment, additional synchronization would be needed,
@@ -1619,9 +1623,15 @@ IMPORTANT:
           // Proceed to fetch structure if cache loading fails
         }
 
-        // If we reached here, either there was no cache, it was invalid, or an error occurred
-        // Proceed to fetch repository structure
+      // If we reached here, either there was no cache, it was invalid, or an error occurred
+      // Proceed to fetch repository structure
+      if (useBackendProcessing) {
+        // Use backend processing API
+        fetchRepositoryStructure(); // Temporarily use frontend processing until backend is implemented
+      } else {
+        // Use frontend processing
         fetchRepositoryStructure();
+      }
       };
 
       loadData();

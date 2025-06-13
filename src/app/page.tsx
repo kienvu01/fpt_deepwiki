@@ -85,6 +85,9 @@ export default function Home() {
 
   // Wiki type state - default to comprehensive view
   const [isComprehensiveView, setIsComprehensiveView] = useState<boolean>(true);
+  
+  // Backend processing state - default to false (frontend processing)
+  const [useBackendProcessing, setUseBackendProcessing] = useState<boolean>(false);
 
   const [excludedDirs, setExcludedDirs] = useState('');
   const [excludedFiles, setExcludedFiles] = useState('');
@@ -239,6 +242,9 @@ export default function Home() {
 
     // Add comprehensive parameter
     params.append('comprehensive', isComprehensiveView.toString());
+    
+    // Add backend processing parameter
+    params.append('backend_processing', useBackendProcessing.toString());
 
     const queryString = params.toString() ? `?${params.toString()}` : '';
 
@@ -307,6 +313,8 @@ export default function Home() {
             setSelectedLanguage={setSelectedLanguage}
             isComprehensiveView={isComprehensiveView}
             setIsComprehensiveView={setIsComprehensiveView}
+            useBackendProcessing={useBackendProcessing}
+            setUseBackendProcessing={setUseBackendProcessing}
             provider={provider}
             setProvider={setProvider}
             model={model}

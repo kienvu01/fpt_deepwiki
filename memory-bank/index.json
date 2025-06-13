@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-06-13T09:04:22+07:00",
+  "entries": {
+    "system_initialization": {
+      "id": "init_2025_06_13",
+      "path": "data/system/initialization.json",
+      "type": "historical_context",
+      "created": "2025-06-13T09:04:22+07:00",
+      "lastAccessed": "2025-06-13T09:04:22+07:00",
+      "tags": ["system", "initialization", "setup"],
+      "summary": "Initial memory bank system setup and configuration"
+    }
+  },
+  "stats": {
+    "totalEntries": 1,
+    "byType": {
+      "historical_context": 1,
+      "user_preference": 0,
+      "learning_outcome": 0,
+      "decision_record": 0,
+      "frequent_access": 0
+    },
+    "totalSize": 0
+  }
+}

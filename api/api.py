@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 import google.generativeai as genai
 import asyncio
 import glob
+from api.wiki_report import WikiReportRequest, generate_and_store_wiki_report
 
 # Get a logger for this module
 logger = logging.getLogger(__name__)
@@ -463,6 +464,40 @@ async def save_wiki_cache(data: WikiCacheRequest) -> bool:
         logger.error(f"Unexpected error saving wiki cache to {cache_path}: {e}", exc_info=True)
         return False
 
+# --- Wiki Report Generation Endpoint ---
+
+@app.post("/api/wiki/generate", response_model=Dict[str, Any])
+async def generate_wiki_report_endpoint(request: WikiReportRequest):
+    """
+    Generate a complete wiki report for a repository and store it in the RAG system.
+    
+    Args:
+        request: The wiki report request containing the repository URL and options
+        
+    Returns:
+        The generated wiki report
+    """
+    try:
+        logger.info(f"Generating wiki report for {request.repo_url}")
+        
+        # Generate the wiki report and store it in RAG
+        report, rag_success = generate_and_store_wiki_report(request)
+        
+        # Convert the report to a dictionary
+        report_dict = report.dict()
+        
+        # Add RAG storage status
+        report_dict["stored_in_rag"] = rag_success
+        
+        return report_dict
+    
+    except Exception as e:
+        logger.error(f"Error generating wiki report: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating wiki report: {str(e)}"
+        )
+
 # --- Wiki Cache API Endpoints ---
 
 @app.get("/api/wiki_cache", response_model=Optional[WikiCacheData])
@@ -549,6 +584,7 @@ async def root():
                 "WebSocket /ws/chat - WebSocket chat completion",
             ],
             "Wiki": [
+                "POST /api/wiki/generate - Generate wiki report and store in RAG",
                 "POST /export/wiki - Export wiki content as Markdown or JSON",
                 "GET /api/wiki_cache - Retrieve cached wiki data",
                 "POST /api/wiki_cache - Store wiki data to cache",

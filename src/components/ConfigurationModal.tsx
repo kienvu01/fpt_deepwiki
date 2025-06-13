@@ -19,6 +19,10 @@ interface ConfigurationModalProps {
   // Wiki type options
   isComprehensiveView: boolean;
   setIsComprehensiveView: (value: boolean) => void;
+  
+  // Backend processing option
+  useBackendProcessing?: boolean;
+  setUseBackendProcessing?: (value: boolean) => void;
 
   // Model selection
   provider: string;
@@ -61,6 +65,8 @@ export default function ConfigurationModal({
   setSelectedLanguage,
   isComprehensiveView,
   setIsComprehensiveView,
+  useBackendProcessing,
+  setUseBackendProcessing,
   provider,
   setProvider,
   model,
@@ -198,6 +204,64 @@ export default function ConfigurationModal({
                 </button>
               </div>
             </div>
+
+            {/* Backend Processing Toggle */}
+            {setUseBackendProcessing && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                  {t.form?.processingMethod || 'Processing Method'}
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setUseBackendProcessing(false)}
+                    className={`flex-1 flex items-center justify-between p-2 rounded-md border transition-colors ${
+                      !useBackendProcessing
+                        ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)]/30 text-[var(--accent-primary)]'
+                        : 'bg-[var(--background)]/50 border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <div className="text-left">
+                        <div className="font-medium text-sm">{t.form?.frontendProcessing || 'Frontend'}</div>
+                        <div className="text-xs opacity-80">
+                          {t.form?.frontendProcessingDescription || 'Process in browser (default)'}
+                        </div>
+                      </div>
+                    </div>
+                    {!useBackendProcessing && (
+                      <div className="ml-2 h-4 w-4 rounded-full bg-[var(--accent-primary)]/20 flex items-center justify-center">
+                        <div className="h-2 w-2 rounded-full bg-[var(--accent-primary)]"></div>
+                      </div>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setUseBackendProcessing(true)}
+                    className={`flex-1 flex items-center justify-between p-2 rounded-md border transition-colors ${
+                      useBackendProcessing
+                        ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)]/30 text-[var(--accent-primary)]'
+                        : 'bg-[var(--background)]/50 border-[var(--border-color)] text-[var(--foreground)] hover:bg-[var(--background)]'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <div className="text-left">
+                        <div className="font-medium text-sm">{t.form?.backendProcessing || 'Backend'}</div>
+                        <div className="text-xs opacity-80">
+                          {t.form?.backendProcessingDescription || 'Process on server (faster)'}
+                        </div>
+                      </div>
+                    </div>
+                    {useBackendProcessing && (
+                      <div className="ml-2 h-4 w-4 rounded-full bg-[var(--accent-primary)]/20 flex items-center justify-center">
+                        <div className="h-2 w-2 rounded-full bg-[var(--accent-primary)]"></div>
+                      </div>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Model Selector */}
             <div className="mb-4">

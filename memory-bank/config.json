@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "settings": {
+    "retention": {
+      "default": "365d",
+      "minimum": "30d",
+      "maximum": "unlimited"
+    },
+    "memoryTypes": [
+      "user_preference",
+      "historical_context",
+      "learning_outcome",
+      "decision_record",
+      "frequent_access"
+    ],
+    "indexing": {
+      "enabled": true,
+      "updateFrequency": "realtime",
+      "searchableFields": [
+        "content",
+        "metadata.tags",
+        "metadata.source",
+        "metadata.context"
+      ]
+    },
+    "storage": {
+      "format": "json",
+      "compression": false,
+      "maxEntrySizeKB": 1024,
+      "autoBackup": true,
+      "backupInterval": "24h"
+    }
+  }
+}

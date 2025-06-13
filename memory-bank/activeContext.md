@@ -12,6 +12,18 @@ Key areas of focus include:
 
 ## Recent Changes
 
+### Enhanced Backend Wiki Report Generation API
+- Created a dedicated `wiki_report.py` module for generating wiki reports on the backend
+- Implemented a RESTful API endpoint at `/api/wiki/generate` for wiki generation
+- Added OpenAPI specification for the new endpoint
+- Created a frontend API route at `src/app/api/wiki/generate/route.ts` to proxy requests
+- Updated the repository page to support backend processing option
+- Added an example script `generate_wiki_report.py` for testing the wiki report generation API
+- Integrated with the RAG system to store generated wiki reports
+- Ensured compatibility with existing wiki cache system
+- Added Pydantic models for request/response validation
+- Implemented error handling and logging for the API
+
 ### Added Swagger API Documentation
 - Created comprehensive OpenAPI specification (openapi.yaml) documenting all API endpoints
 - Implemented a Swagger UI interface for interactive API exploration and testing
@@ -52,7 +64,23 @@ Key areas of focus include:
 
 ## Next Steps
 
-After implementing the Swagger API documentation and local project analysis API, potential next steps could include:
+After enhancing the backend wiki report generation API, potential next steps could include:
+
+1. **Further Enhance Wiki Report Generation**:
+   - Add more customization options for wiki structure
+   - Improve content generation with more detailed insights
+   - Add support for custom templates
+   - Implement progress tracking for long-running generation tasks
+   - Create visualization for wiki generation statistics
+   - Add support for incremental updates to existing wikis
+   - Implement batch processing for multiple repositories
+
+2. **Frontend Integration Improvements**:
+   - Further enhance the UI for backend processing option
+   - Add progress indicators for backend processing
+   - Implement error handling and retry mechanisms
+   - Create a comparison view to show differences between frontend and backend generation
+   - Add a dashboard for monitoring wiki generation jobs
 
 1. **Enhance Local Project Analysis**:
    - Add support for more programming languages

@@ -55,6 +55,7 @@ graph TD
 - **Model Clients**: Interfaces with various AI model providers
 - **WebSocket Manager**: Handles streaming responses for real-time interaction
 - **Local Project Analyzer**: Analyzes local project directories and generates reports
+- **Wiki Report Generator**: Generates comprehensive wiki reports on the backend and stores them in RAG
 
 ## Design Patterns
 
@@ -174,7 +175,36 @@ graph LR
     C --> D[Create Component Documentation]
     D --> E[Generate Diagrams]
     E --> F[Organize as Wiki]
+    F --> G[Store in RAG]
 ```
+
+### Backend Wiki Report Generation
+```mermaid
+graph LR
+    A[API Request] --> B[Validate Parameters]
+    B --> C[Process Repository]
+    C --> D[Generate Wiki Structure]
+    D --> E[Create Wiki Pages]
+    E --> F[Store in RAG System]
+    F --> G[Return Wiki Report]
+    
+    H[Frontend API Route] --> A
+    I[Example Script] --> A
+```
+
+The backend wiki report generation process involves:
+1. Receiving a request with repository URL and configuration options
+2. Validating the request parameters using Pydantic models
+3. Processing the repository to extract file structure and content
+4. Generating a wiki structure with sections and pages
+5. Creating content for each wiki page using AI models
+6. Storing the generated wiki in the RAG system for future retrieval
+7. Returning the complete wiki report to the client
+
+The API can be accessed through:
+- The frontend API route at `/api/wiki/generate`
+- The example script at `api/examples/generate_wiki_report.py`
+- Direct API calls to the backend endpoint at `/api/wiki/generate`
 
 ### RAG Implementation
 ```mermaid

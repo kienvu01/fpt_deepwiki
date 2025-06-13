@@ -61,6 +61,7 @@ The project is in active development, with ongoing improvements and feature addi
 
 ### Feature Enhancements
 - ✅ Local project analysis API
+- ✅ Backend wiki report generation API with RAG integration
 - 🔄 Additional visualization types
 - 🔄 More granular repository filtering
 - 🔄 Enhanced search capabilities
@@ -68,6 +69,8 @@ The project is in active development, with ongoing improvements and feature addi
 - 🔄 Collaborative wiki editing
 - 🔄 Version history for wikis
 - 🔄 Frontend interface for local project analysis
+- 🔄 Progress tracking for long-running wiki generation tasks
+- 🔄 Batch processing for multiple repositories
 
 ### User Experience
 - 🔄 Improved error handling and feedback
@@ -175,6 +178,8 @@ The project is in active development, with ongoing improvements and feature addi
 - Refined user interface
 - Added local project analysis API
 - Added comprehensive Swagger API documentation
+- Added backend wiki report generation API with RAG integration
+- Added example scripts for API usage
 
 ## Future Roadmap
 
@@ -186,6 +191,11 @@ The project is in active development, with ongoing improvements and feature addi
 - Create frontend interface for local project analysis
 - Enhance local project analysis with more detailed insights
 - Expand API documentation with more examples and use cases
+- Enhance backend wiki report generation with progress tracking
+- Improve frontend-backend integration for wiki generation
+- Add support for incremental updates to existing wikis
+- Implement batch processing for multiple repositories
+- Create a dashboard for monitoring wiki generation jobs
 
 ### Medium-term Goals (3-6 Months)
 - Implement user authentication system
