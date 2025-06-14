@@ -532,7 +532,13 @@ def store_report_in_rag(report: ProjectReport, project_path: str) -> bool:
                     "is_implementation": False,
                     "title": f"{report.project_name} Summary",
                     "token_count": count_tokens(report.summary),
-                }
+                },
+                vector=[],  # Will be filled by embedder
+                id=str(uuid4()),
+                order=None,
+                score=None,
+                parent_doc_id=None,
+                estimated_num_tokens=count_tokens(report.summary)
             )
             documents.append(summary_doc)
         
@@ -547,7 +553,13 @@ def store_report_in_rag(report: ProjectReport, project_path: str) -> bool:
                     "is_implementation": False,
                     "title": f"{report.project_name} README",
                     "token_count": count_tokens(report.readme_content),
-                }
+                },
+                vector=[],  # Will be filled by embedder
+                id=str(uuid4()),
+                order=None,
+                score=None,
+                parent_doc_id=None,
+                estimated_num_tokens=count_tokens(report.readme_content)
             )
             documents.append(readme_doc)
         
@@ -562,7 +574,13 @@ def store_report_in_rag(report: ProjectReport, project_path: str) -> bool:
                     "is_implementation": False,
                     "title": f"{report.project_name} Structure",
                     "token_count": count_tokens(report.project_structure),
-                }
+                },
+                vector=[],  # Will be filled by embedder
+                id=str(uuid4()),
+                order=None,
+                score=None,
+                parent_doc_id=None,
+                estimated_num_tokens=count_tokens(report.project_structure)
             )
             documents.append(structure_doc)
         
@@ -586,7 +604,13 @@ def store_report_in_rag(report: ProjectReport, project_path: str) -> bool:
                 "is_implementation": False,
                 "title": f"{report.project_name} Statistics",
                 "token_count": count_tokens(stats_text),
-            }
+            },
+            vector=[],  # Will be filled by embedder
+            id=str(uuid4()),
+            order=None,
+            score=None,
+            parent_doc_id=None,
+            estimated_num_tokens=count_tokens(stats_text)
         )
         documents.append(stats_doc)
         
@@ -595,7 +619,7 @@ def store_report_in_rag(report: ProjectReport, project_path: str) -> bool:
         
         # Create a database for the project
         is_ollama = is_ollama_embedder()
-        transformed_docs = db_manager._create_repo(project_id)
+        db_manager._create_repo(project_id)
         
         # Transform the documents and save to the database
         db_path = db_manager.repo_paths["save_db_file"]

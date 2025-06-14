@@ -24,6 +24,48 @@ tags:
     description: Health check endpoints
 
 paths:
+  /api/wiki/{id}:
+    get:
+      tags:
+        - Wiki
+      summary: Get wiki content by ID
+      description: Retrieves wiki content from cache by ID
+      operationId: getWikiById
+      parameters:
+        - name: id
+          in: path
+          description: ID of the wiki content to retrieve
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WikiStructureModel'
+                  - $ref: '#/components/schemas/WikiPage'
+        '400':
+          description: Wiki ID is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Wiki content not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /chat/completions/stream:
     post:
       tags:

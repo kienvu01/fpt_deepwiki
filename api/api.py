@@ -154,6 +154,7 @@ class ModelConfig(BaseModel):
 
 from api.config import configs
 from api.local_report import analyze_project, generate_project_summary, store_report_in_rag, analyze_and_store_project
+from api.local_project_wiki import LocalProjectWiki
 
 @app.get("/models/config", response_model=ModelConfig)
 async def get_model_config():
@@ -742,6 +743,54 @@ async def list_local_project_reports():
             detail=f"Error listing local project reports: {str(e)}"
         )
 
+@app.post("/api/local_project/wiki", response_model=Dict[str, Any])
+async def generate_local_project_wiki(request: LocalProjectAnalysisRequest):
+    """
+    Generate wiki documentation from a local project directory.
+    
+    Args:
+        request: The analysis request containing the project path and options
+        
+    Returns:
+        Dict containing the wiki structure and generated pages
+    """
+    try:
+        logger.info(f"Generating wiki for local project at {request.project_path}")
+        
+        # Validate project path
+        if not os.path.isdir(request.project_path):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Project path does not exist or is not a directory: {request.project_path}"
+            )
+        
+        # Initialize wiki generator
+        wiki_gen = LocalProjectWiki(
+            project_path=request.project_path,
+            model_provider=request.model_provider,
+            model_name=request.model_name,
+            excluded_dirs=request.excluded_dirs,
+            excluded_files=request.excluded_files
+        )
+        
+        # Generate wiki
+        wiki_structure, generated_pages = wiki_gen.generate_wiki()
+        
+        # Convert to dictionary format
+        result = {
+            "wiki_structure": wiki_structure,
+            "generated_pages": generated_pages
+        }
+        
+        return result
+    
+    except Exception as e:
+        logger.error(f"Error generating local project wiki: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating local project wiki: {str(e)}"
+        )
+
 @app.get("/api/local_project/report/{id}", response_model=Dict[str, Any])
 async def get_local_project_report(id: str):
     """
@@ -758,146 +807,132 @@ async def get_local_project_report(id: str):
         root_path = get_adalflow_default_root_path()
         db_path = os.path.join(root_path, "databases", f"{id}.pkl")
         
-        # Check if the database exists
         if not os.path.exists(db_path):
             raise HTTPException(
                 status_code=404,
                 detail=f"Report not found: {id}"
             )
         
-        # Load the database using pickle
+        # Load the report from the database
         import pickle
         try:
             with open(db_path, 'rb') as f:
                 db_data = pickle.load(f)
-                
-            # Extract the project report from the database
-            # The database structure might vary, so we need to handle different formats
-            project_report = None
             
-            # Try to find a ProjectReport object in the database
+            # Extract the project report
+            project_report = None
             if hasattr(db_data, 'get') and callable(db_data.get):
-                # If db_data is a dictionary-like object, look for the report
                 if 'report' in db_data:
                     project_report = db_data['report']
                 elif 'project_report' in db_data:
                     project_report = db_data['project_report']
             elif hasattr(db_data, 'to_dict') and callable(db_data.to_dict):
-                # If db_data is a ProjectReport object or has a to_dict method
                 project_report = db_data
-            else:
-                # If we can't find a ProjectReport, return the raw data
-                logger.warning(f"Could not find ProjectReport in database: {id}")
-                return {
-                    "id": id,
-                    "raw_data": str(db_data)
-                }
             
-            # Convert the project report to a dictionary
-            if hasattr(project_report, 'to_dict') and callable(project_report.to_dict):
-                report_dict = project_report.to_dict()
-            elif isinstance(project_report, dict):
-                report_dict = project_report
-            else:
-                logger.warning(f"Could not convert ProjectReport to dictionary: {id}")
-                return {
-                    "id": id,
-                    "raw_data": str(project_report)
-                }
-            
-            # Add the report ID to the dictionary
-            report_dict['id'] = id
-            
-            # Ensure all values are JSON serializable
-            def make_json_serializable(obj):
-                if isinstance(obj, dict):
-                    return {k: make_json_serializable(v) for k, v in obj.items()}
-                elif isinstance(obj, list):
-                    return [make_json_serializable(item) for item in obj]
-                elif isinstance(obj, (str, int, float, bool, type(None))):
-                    return obj
+            if project_report:
+                if hasattr(project_report, 'to_dict') and callable(project_report.to_dict):
+                    return project_report.to_dict()
+                elif isinstance(project_report, dict):
+                    return project_report
                 else:
-                    # Convert non-serializable objects to strings
-                    return str(obj)
-            
-            # Process the report dictionary to ensure all values are JSON serializable
-            report_dict = make_json_serializable(report_dict)
-            
-            return report_dict
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Invalid report format in database: {id}"
+                    )
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Could not find project report in database: {id}"
+                )
             
         except (pickle.PickleError, EOFError) as pe:
-            logger.error(f"Error unpickling database file {db_path}: {pe}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Error reading report data: {str(pe)}"
+                detail=f"Error reading report from database: {str(pe)}"
             )
     
     except HTTPException:
         raise
-    
     except Exception as e:
-        logger.error(f"Error retrieving local project report: {e}", exc_info=True)
+        logger.error(f"Error getting local project report: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Error retrieving local project report: {str(e)}"
+            detail=f"Error getting local project report: {str(e)}"
         )
 
-# --- Processed Projects Endpoint --- (New Endpoint)
 @app.get("/api/processed_projects", response_model=List[ProcessedProjectEntry])
 async def get_processed_projects():
     """
-    Lists all processed projects found in the wiki cache directory.
-    Projects are identified by files named like: deepwiki_cache_{repo_type}_{owner}_{repo}_{language}.json
+    Get a list of all processed projects, including both wiki cache entries and local project reports.
+    
+    Returns:
+        List[ProcessedProjectEntry]: A list of all processed projects
     """
-    project_entries: List[ProcessedProjectEntry] = []
-    # WIKI_CACHE_DIR is already defined globally in the file
-
     try:
-        if not os.path.exists(WIKI_CACHE_DIR):
-            logger.info(f"Cache directory {WIKI_CACHE_DIR} not found. Returning empty list.")
-            return []
-
-        logger.info(f"Scanning for project cache files in: {WIKI_CACHE_DIR}")
-        filenames = await asyncio.to_thread(os.listdir, WIKI_CACHE_DIR) # Use asyncio.to_thread for os.listdir
-
-        for filename in filenames:
-            if filename.startswith("deepwiki_cache_") and filename.endswith(".json"):
-                file_path = os.path.join(WIKI_CACHE_DIR, filename)
-                try:
-                    stats = await asyncio.to_thread(os.stat, file_path) # Use asyncio.to_thread for os.stat
-                    parts = filename.replace("deepwiki_cache_", "").replace(".json", "").split('_')
-
-                    # Expecting repo_type_owner_repo_language
-                    # Example: deepwiki_cache_github_AsyncFuncAI_deepwiki-open_en.json
-                    # parts = [github, AsyncFuncAI, deepwiki-open, en]
-                    if len(parts) >= 4:
-                        repo_type = parts[0]
-                        owner = parts[1]
-                        language = parts[-1] # language is the last part
-                        repo = "_".join(parts[2:-1]) # repo can contain underscores
-
-                        project_entries.append(
-                            ProcessedProjectEntry(
-                                id=filename,
+        processed_projects = []
+        
+        # Get wiki cache entries
+        wiki_cache_dir = os.path.join(get_adalflow_default_root_path(), "wikicache")
+        if os.path.exists(wiki_cache_dir):
+            for filename in os.listdir(wiki_cache_dir):
+                if filename.startswith("deepwiki_cache_") and filename.endswith(".json"):
+                    try:
+                        # Parse filename: deepwiki_cache_<repo_type>_<owner>_<repo>_<language>.json
+                        parts = filename[len("deepwiki_cache_"):-5].split('_')
+                        if len(parts) >= 4:
+                            repo_type = parts[0]
+                            owner = parts[1]
+                            language = parts[-1]
+                            repo = '_'.join(parts[2:-1])  # Handle repo names that might contain underscores
+                            
+                            # Get file modification time as submittedAt
+                            file_path = os.path.join(wiki_cache_dir, filename)
+                            submitted_at = int(os.path.getmtime(file_path) * 1000)
+                            
+                            processed_projects.append(ProcessedProjectEntry(
+                                id=filename[:-5],  # Remove .json
                                 owner=owner,
                                 repo=repo,
                                 name=f"{owner}/{repo}",
                                 repo_type=repo_type,
-                                submittedAt=int(stats.st_mtime * 1000), # Convert to milliseconds
+                                submittedAt=submitted_at,
                                 language=language
-                            )
-                        )
-                    else:
-                        logger.warning(f"Could not parse project details from filename: {filename}")
-                except Exception as e:
-                    logger.error(f"Error processing file {file_path}: {e}")
-                    continue # Skip this file on error
-
-        # Sort by most recent first
-        project_entries.sort(key=lambda p: p.submittedAt, reverse=True)
-        logger.info(f"Found {len(project_entries)} processed project entries.")
-        return project_entries
-
+                            ))
+                    except Exception as e:
+                        logger.warning(f"Error processing wiki cache entry {filename}: {e}")
+        
+        # Get local project reports
+        db_dir = os.path.join(get_adalflow_default_root_path(), "databases")
+        if os.path.exists(db_dir):
+            for filename in os.listdir(db_dir):
+                if filename.startswith("local_") and filename.endswith(".pkl"):
+                    try:
+                        # Parse filename: local_<project_name>_<timestamp>.pkl
+                        parts = filename[:-4].split('_')  # Remove .pkl
+                        if len(parts) >= 3:
+                            project_name = '_'.join(parts[1:-1])
+                            timestamp = int(parts[-1])
+                            
+                            processed_projects.append(ProcessedProjectEntry(
+                                id=filename[:-4],  # Remove .pkl
+                                owner="local",
+                                repo=project_name,
+                                name=project_name,
+                                repo_type="local",
+                                submittedAt=timestamp * 1000,  # Convert to milliseconds
+                                language="auto"
+                            ))
+                    except Exception as e:
+                        logger.warning(f"Error processing local project report {filename}: {e}")
+        
+        # Sort by submittedAt (newest first)
+        processed_projects.sort(key=lambda x: x.submittedAt, reverse=True)
+        
+        return processed_projects
+    
     except Exception as e:
-        logger.error(f"Error listing processed projects from {WIKI_CACHE_DIR}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to list processed projects from server cache.")
+        logger.error(f"Error getting processed projects: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting processed projects: {str(e)}"
+        )

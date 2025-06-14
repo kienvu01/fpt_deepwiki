@@ -58,7 +58,7 @@ export default function ProcessedProjects({
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/wiki/projects');
+        const response = await fetch('/api/processed_projects');
         if (!response.ok) {
           throw new Error(`Failed to fetch projects: ${response.statusText}`);
         }
@@ -106,14 +106,20 @@ export default function ProcessedProjects({
       return;
     }
     try {
-      const response = await fetch('/api/wiki/projects', {
+      const endpoint = project.repo_type === 'local' 
+        ? `/api/local_project/report/${project.id}`
+        : '/api/wiki_cache';
+
+      const response = await fetch(endpoint, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          owner: project.owner,
-          repo: project.repo,
-          repo_type: project.repo_type,
-          language: project.language,
+        ...(project.repo_type !== 'local' && {
+          body: JSON.stringify({
+            owner: project.owner,
+            repo: project.repo,
+            repo_type: project.repo_type,
+            language: project.language,
+          })
         }),
       });
       if (!response.ok) {
@@ -205,7 +211,9 @@ export default function ProcessedProjects({
                   <FaTimes className="h-4 w-4" />
                 </button>
                 <Link
-                  href={`/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}`}
+                  href={project.repo_type === 'local' 
+                    ? `/local-project/${project.id}`
+                    : `/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}`}
                   className="block"
                 >
                   <h3 className="text-lg font-semibold text-[var(--link-color)] hover:underline mb-2 line-clamp-2">
@@ -235,7 +243,9 @@ export default function ProcessedProjects({
                   <FaTimes className="h-4 w-4" />
                 </button>
                 <Link
-                  href={`/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}`}
+                  href={project.repo_type === 'local' 
+                    ? `/local-project/${project.id}`
+                    : `/${project.owner}/${project.repo}?type=${project.repo_type}&language=${project.language}`}
                   className="flex items-center justify-between"
                 >
                   <div className="flex-1 min-w-0">

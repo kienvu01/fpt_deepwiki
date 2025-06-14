@@ -4,12 +4,16 @@ import logging
 import re
 from pathlib import Path
 from typing import List, Union, Dict, Any
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-from api.openai_client import OpenAIClient
-from api.openrouter_client import OpenRouterClient
-from api.bedrock_client import BedrockClient
+# Load environment variables from .env file
+load_dotenv()
+
+from .openai_client import OpenAIClient
+from .openrouter_client import OpenRouterClient
+from .bedrock_client import BedrockClient
 from adalflow import GoogleGenAIClient, OllamaClient
 
 # Get API keys from environment variables
