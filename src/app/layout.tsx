@@ -1,28 +1,19 @@
 import type { Metadata } from "next";
-import { Noto_Sans_JP, Noto_Serif_JP, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 
-// Japanese-friendly fonts
-const notoSansJP = Noto_Sans_JP({
+// Use a more reliable font that's commonly cached
+const inter = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
   display: "swap",
+  fallback: ["system-ui", "arial"],
 });
 
-const notoSerifJP = Noto_Serif_JP({
-  variable: "--font-serif-jp",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  display: "swap",
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// For now, let's use CSS font stacks instead of loading multiple Google fonts
+// This will prevent network timeout issues during Docker build
 
 export const metadata: Metadata = {
   title: "Deepwiki Open Source | Sheing Ng",
@@ -37,7 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${notoSansJP.variable} ${notoSerifJP.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} antialiased font-sans`}
+        style={{
+          fontFamily: 'var(--font-geist-sans), "Noto Sans JP", system-ui, -apple-system, sans-serif'
+        }}
       >
         <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem>
           <LanguageProvider>
